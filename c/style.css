@@ -233,6 +233,27 @@ ins{color:var(--ok);text-decoration:none;font-weight:700;background:var(--ok-bg)
   .self-tile{width:32%}.ctl{width:54px;height:54px}.dir-tag{display:none}
 }
 
+/* ===== sound / speech ===== */
+.p-top{position:relative}
+.snd-ctrls{display:flex;gap:8px}
+.pill-btn{font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);padding:7px 12px;border-radius:999px;cursor:pointer}
+.pill-btn.off{color:var(--err);border-color:var(--err)}
+.pill-btn.on{background:var(--primary);color:var(--primary-ink);border-color:var(--primary)}
+.p-top .mode-switch{margin-left:auto}
+.sound-hint{display:none;position:fixed;left:50%;top:84px;transform:translateX(-50%);z-index:70;font:600 14px var(--font);background:var(--primary);color:var(--primary-ink);border:0;border-radius:999px;padding:10px 18px;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;animation:hintpop 1.6s ease-in-out infinite}
+.sound-hint.show{display:block}.sound-hint.info{animation:none;background:#2b2b38;color:#fff;cursor:default}
+@keyframes hintpop{50%{transform:translateX(-50%) scale(1.05)}}
+.msg-tools{display:flex;gap:12px;align-items:center;margin-top:6px}
+.msg-tools .tr-btn{margin-top:0}
+.say-btn{background:none;border:0;padding:0;font-size:14px;line-height:1;cursor:pointer;opacity:.7}
+.say-btn:hover{opacity:1}.say-btn.on{opacity:1;animation:saypulse .6s ease-in-out infinite alternate}
+@keyframes saypulse{to{transform:scale(1.25)}}
+.c-say{margin-left:6px;vertical-align:middle}
+.tutor-speaking .wave span{opacity:1;background:var(--accent);animation:wave .7s ease-in-out infinite}
+.tutor-speaking .mic-big{opacity:.85}
+.sub-text mark{background:var(--accent);color:#111;border-radius:4px;padding:0 2px}
+@media (max-width:640px){.snd-ctrls{justify-content:flex-end}.p-top .mode-switch{margin-left:0}.sound-hint{top:70px}}
+
 /* ===== THEME C ===== */
 :root{--font:"Inter","SF Pro Display",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-head:"Inter","SF Pro Display",system-ui,sans-serif;
 --bg:#07080f;--surface:#10121f;--surface-alt:#0b0d18;--text:#eef0ff;--muted:#8b90b2;--primary:#7c3aed;--primary-ink:#fff;--accent:#22d3ee;--link:#a78bfa;

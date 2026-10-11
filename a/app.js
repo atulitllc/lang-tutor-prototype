@@ -99,26 +99,86 @@ function initOnboarding(){
   sync();
 }
 
+/* ---------- Speech (Web Speech API, free, in-browser) ---------- */
+var BCP={es:'es-ES',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-BR',ja:'ja-JP',ko:'ko-KR',zh:'zh-CN',hi:'hi-IN',ar:'ar-SA',ru:'ru-RU',en:'en-US'};
+var Speech=(function(){
+  var synth=window.speechSynthesis, ok=!!(synth&&window.SpeechSynthesisUtterance);
+  var voices=[], unlocked=false, muted=get('muted','0')==='1', slow=get('slow','0')==='1', token=0, listeners=[];
+  function load(){ if(!ok) return; voices=synth.getVoices()||[]; }
+  if(ok){ load(); if('onvoiceschanged' in synth) synth.addEventListener?synth.addEventListener('voiceschanged',load):(synth.onvoiceschanged=load); setTimeout(load,500); setTimeout(load,2000); }
+  function score(v,lang){
+    var s=0, vl=(v.lang||'').replace('_','-').toLowerCase(), want=lang.toLowerCase(), pre=want.split('-')[0];
+    if(vl===want) s+=100; else if(vl.split('-')[0]===pre) s+=60; else return -1;
+    if(/google|natural|neural|premium|enhanced/i.test(v.name)) s+=10;
+    if(v.localService) s+=2; if(v['default']) s+=1;
+    return s;
+  }
+  function pick(lang){
+    load(); var best=null,bs=-1;
+    voices.forEach(function(v){var s=score(v,lang); if(s>bs){bs=s;best=v}});
+    return best; // null => browser picks from utt.lang (or default voice)
+  }
+  function emit(){listeners.forEach(function(f){f()})}
+  function unlock(){
+    if(unlocked||!ok) return; unlocked=true;
+    try{ var u=new SpeechSynthesisUtterance(' '); u.volume=0; synth.speak(u); }catch(e){}
+    emit();
+  }
+  function cancel(){ token++; if(ok) try{synth.cancel()}catch(e){} }
+  // speak a queue of [text, lang] items; callbacks per item. Returns false if it cannot speak (caller falls back to timers)
+  function speakSeq(items,cb){
+    cb=cb||{}; cancel(); var my=token;
+    if(!ok||muted||!unlocked){ if(cb.blocked) cb.blocked(); return false; }
+    var i=0;
+    function next(){
+      if(my!==token) return;
+      if(i>=items.length){ if(cb.done) cb.done(); return; }
+      var it=items[i++], text=it[0], lang=it[1]||'en-US', started=false, ended=false, wd, wd2;
+      var u=new SpeechSynthesisUtterance(text); u.lang=lang; var v=pick(lang); if(v){ try{u.voice=v}catch(e){} }
+      u.rate=slow?0.7:0.95; u.pitch=1;
+      function finish(err){ if(ended) return; ended=true; clearTimeout(wd); clearTimeout(wd2); if(my!==token) return; if(cb.end) cb.end(it,i-1,err); if(err){ if(cb.fail) cb.fail(err); return; } setTimeout(next,250); }
+      u.onstart=function(){ started=true; clearTimeout(wd); if(my!==token) return; if(cb.start) cb.start(it,i-1);
+        wd2=setTimeout(function(){finish('timeout')}, 4000+text.length*(slow?160:110)); };
+      u.onend=function(){ finish(started?undefined:'no-start'); }; // ended without ever starting = no usable voice
+      u.onerror=function(e){ finish(e&&e.error||'error'); };
+      u.onboundary=function(e){ if(my===token&&cb.boundary) cb.boundary(it,e.charIndex,e.charLength); };
+      // watchdog: some browsers/OSes have no voices and never fire onstart
+      wd=setTimeout(function(){ if(!started){ try{synth.cancel()}catch(e){} finish('no-start'); } },4000);
+      try{ synth.speak(u); if(synth.paused) synth.resume(); }catch(e){ finish('throw'); }
+    }
+    next(); return true;
+  }
+  return {ok:ok,pick:pick,unlock:unlock,cancel:cancel,speakSeq:speakSeq,
+    isUnlocked:function(){return unlocked}, isMuted:function(){return muted}, isSlow:function(){return slow},
+    setMuted:function(m){muted=m;set('muted',m?'1':'0');if(m)cancel();emit()},
+    setSlow:function(s){slow=s;set('slow',s?'1':'0');emit()},
+    onChange:function(f){listeners.push(f)}, voices:function(){load();return voices}};
+})();
+window.PROTO.Speech=Speech;
+
 /* ---------- Practice ---------- */
 function initPractice(){
   var chat=$('#chat'); if(!chat) return;
   var qs=new URLSearchParams(location.search);
   var code=qs.get('lang')||get('lang','es'); if(!LANGS[code]) code='es';
-  var L=LANGS[code], level=LEVELS[get('level','beginner')]||'Beginner';
+  var L=LANGS[code], level=LEVELS[get('level','beginner')]||'Beginner', TL=BCP[code]||'es-ES';
   $$('.js-lang').forEach(function(n){n.textContent=L.name});
   $$('.js-flag').forEach(function(n){n.textContent=L.flag});
   $$('.js-level').forEach(function(n){n.textContent=level});
   $$('.js-tutor').forEach(function(n){n.textContent=L.tutor});
   $$('.js-tutor-init').forEach(function(n){n.textContent=L.tutor.charAt(0)});
-  var xp=120, words=86, acc=91, lesson=40, corrections=[];
+  var xp=120, words=86, acc=91, lesson=40, corrections=[], lastTutor=L.lines[0];
+  var stage=$('#stage');
+  function mode(){return stage.dataset.mode}
 
   function tutorMsg(line){
     var d=document.createElement('div');d.className='msg tutor';
-    d.innerHTML='<div class="avatar-sm">'+L.tutor.charAt(0)+'</div><div class="bubble"><div class="txt">'+esc(line[0])+'</div>'+(line[1]&&line[1]!=='(English)'?'<button class="tr-btn" type="button">Translate</button><div class="tr">'+esc(line[1])+'</div>':'')+'</div>';
+    d.innerHTML='<div class="avatar-sm">'+L.tutor.charAt(0)+'</div><div class="bubble"><div class="txt">'+esc(line[0])+'</div><div class="msg-tools"><button class="say-btn" type="button" title="Play audio" aria-label="Play audio">🔊</button>'+(line[1]&&line[1]!=='(English)'?'<button class="tr-btn" type="button">Translate</button>':'')+'</div>'+(line[1]&&line[1]!=='(English)'?'<div class="tr">'+esc(line[1])+'</div>':'')+'</div>';
+    d._line=line; lastTutor=line;
     chat.appendChild(d);scroll();return d;
   }
   function correctionHtml(c){
-    return '<div class="correction"><div class="c-head">✏️ Gentle correction</div>'+
+    return '<div class="correction"><div class="c-head">✏️ Gentle correction <button class="say-btn c-say" type="button" title="Hear the correction" aria-label="Hear the correction" data-fixed="'+esc(c.pre+c.right+c.post)+'" data-why="'+esc(c.why)+'">🔊</button></div>'+
       '<div class="c-row"><span class="c-lbl">You wrote</span><span>'+esc(c.pre)+'<del>'+esc(c.wrong)+'</del>'+esc(c.post)+'</span></div>'+
       '<div class="c-row"><span class="c-lbl">Better</span><span>'+esc(c.pre)+'<ins>'+esc(c.right)+'</ins>'+esc(c.post)+'</span></div>'+
       '<div class="c-why">💡 '+esc(c.why)+'</div></div>';
@@ -153,7 +213,10 @@ function initPractice(){
     text=text.trim(); if(!text) return;
     var c=fakeCorrect(text); learnerMsg(text,c); addFeedback(c);
     var t=typing();
-    setTimeout(function(){t.remove();tutorMsg(L.replies[ri++%L.replies.length]);bump();},900);
+    setTimeout(function(){
+      t.remove(); var reply=L.replies[ri++%L.replies.length]; tutorMsg(reply); bump();
+      if(mode()==='voice') voiceSpeak([[c.pre+c.right+c.post,TL],[reply[0],TL]]);
+    },900);
   }
   function bump(){xp+=10;words+=2;lesson=Math.min(100,lesson+12);acc=Math.max(80,Math.min(98,acc+(Math.random()>.5?1:-1)));renderStats()}
   function renderStats(){
@@ -177,72 +240,174 @@ function initPractice(){
   if(L.lines[1]) tutorMsg(L.lines[1]);
   renderStats();
 
-  // suggestions
   var sg=$('#suggestions');
   L.sugg.forEach(function(s){var b=document.createElement('button');b.type='button';b.className='sugg';b.textContent=s;b.onclick=function(){send(s)};sg.appendChild(b)});
   var input=$('#msgInput');
   $('#composer').addEventListener('submit',function(e){e.preventDefault();send(input.value);input.value='';});
-  chat.addEventListener('click',function(e){var b=e.target.closest('.tr-btn');if(b){b.parentNode.classList.toggle('show-tr');b.textContent=b.parentNode.classList.contains('show-tr')?'Hide':'Translate';}});
 
-  // modes
-  var stage=$('#stage');
+  // speaker buttons (chat + feedback panel)
+  function playing(btn,on){ $$('.say-btn.on').forEach(function(b){b.classList.remove('on')}); if(btn&&on) btn.classList.add('on'); }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('.say-btn'); if(!b) return;
+    Speech.unlock();
+    var items;
+    if(b.classList.contains('c-say')) items=[[b.dataset.fixed,TL],[b.dataset.why,'en-US']];
+    else { var m=b.closest('.msg'); items=[[m._line[0],TL]]; }
+    if(Speech.isMuted()) { flashHint('Sound is muted. Turn it on with the 🔇 button.'); return; }
+    var ok=Speech.speakSeq(items,{start:function(){playing(b,true)},done:function(){playing(b,false)},end:function(it,i,err){if(err&&err!=='interrupted'&&err!=='canceled') flashHint('No voice available for this language on this device.')}});
+    if(!ok&&!Speech.ok) flashHint('Your browser does not support speech audio.');
+  });
+  chat.addEventListener('click',function(e){var b=e.target.closest('.tr-btn');if(b){var bub=b.closest('.bubble');bub.classList.toggle('show-tr');b.textContent=bub.classList.contains('show-tr')?'Hide':'Translate';}});
+
+  /* sound controls + hint */
+  var hint=$('#soundHint'), sndBtn=$('#soundToggle'), slowBtn=$('#slowToggle'), vcSound=$('#vcSound');
+  var hintTimer;
+  function flashHint(msg){ hint.textContent=msg; hint.classList.add('show','info'); clearTimeout(hintTimer); hintTimer=setTimeout(function(){hint.classList.remove('show','info');syncSound()},3500); }
+  function syncSound(){
+    var m=Speech.isMuted();
+    sndBtn.textContent=m?'🔇 Muted':'🔊 Sound'; sndBtn.classList.toggle('off',m); sndBtn.setAttribute('aria-pressed',String(!m));
+    slowBtn.classList.toggle('on',Speech.isSlow()); slowBtn.setAttribute('aria-pressed',String(Speech.isSlow()));
+    if(vcSound){ vcSound.classList.toggle('off',m); vcSound.firstChild.nodeValue=m?'🔇':'🔊'; }
+    if(hint.classList.contains('info')) return;
+    var need=Speech.ok&&!Speech.isUnlocked()&&!m&&(mode()==='voice'||mode()==='video');
+    hint.textContent='🔈 Tap to enable sound'; hint.classList.toggle('show',need);
+    if(!Speech.ok&&(mode()==='voice'||mode()==='video')){hint.textContent='Speech audio is not supported in this browser';hint.classList.add('show')}
+  }
+  Speech.onChange(syncSound);
+  sndBtn.onclick=function(){Speech.unlock();Speech.setMuted(!Speech.isMuted());afterSoundChange()};
+  if(vcSound) vcSound.onclick=function(){Speech.unlock();Speech.setMuted(!Speech.isMuted());afterSoundChange()};
+  slowBtn.onclick=function(){Speech.unlock();Speech.setSlow(!Speech.isSlow());};
+  function afterSoundChange(){ if(mode()==='video'){ restartVideoLine(); } else if(mode()==='voice'&&!Speech.isMuted()){ voiceSpeak([[lastTutor[0],TL]]); } else { stopTutorSpeech(); } }
+  hint.onclick=function(){ if(hint.classList.contains('info')) return; Speech.unlock(); kick(); };
+  // first gesture anywhere unlocks audio; if we were waiting in voice/video, start speaking
+  function firstGesture(e){
+    if(Speech.isUnlocked()) return;
+    Speech.unlock();
+    var t=e.target; if(t.closest&&t.closest('.mode-btn,#micBig,#playBtn,#soundToggle,#vcSound,.say-btn,#vcEnd')) return; // those handlers speak themselves
+    kick();
+  }
+  document.addEventListener('pointerdown',firstGesture,true);
+  document.addEventListener('keydown',firstGesture,true);
+  function kick(){ if(mode()==='video') restartVideoLine(); else if(mode()==='voice') voiceSpeak([[lastTutor[0],TL]]); }
+
+  /* modes */
   function setMode(m){
-    stage.dataset.mode=m;
+    var prev=stage.dataset.mode; stage.dataset.mode=m;
     $$('.mode-btn').forEach(function(b){b.classList.toggle('active',b.dataset.mode===m);b.setAttribute('aria-selected',b.dataset.mode===m)});
     if(m!=='voice') stopListen();
+    if(prev!==m) stopTutorSpeech();
     if(m==='video') startVideo(); else stopVideo();
+    if(m==='voice'&&prev!=='voice'&&Speech.isUnlocked()) voiceSpeak([[lastTutor[0],TL]]);
+    syncSound();
   }
-  $$('.mode-btn').forEach(function(b){b.onclick=function(){setMode(b.dataset.mode)}});
-  $$('.js-to-voice').forEach(function(b){b.onclick=function(){setMode('voice')}});
+  $$('.mode-btn').forEach(function(b){b.onclick=function(){Speech.unlock();setMode(b.dataset.mode)}});
+  $$('.js-to-voice').forEach(function(b){b.onclick=function(){Speech.unlock();setMode('voice')}});
+  function stopTutorSpeech(){ Speech.cancel(); stage.classList.remove('tutor-speaking'); tile.classList.remove('speaking'); playing(null,false); }
 
-  // voice
-  var listening=false, lt;
-  var micBig=$('#micBig');
-  function stopListen(){listening=false;clearTimeout(lt);stage.classList.remove('listening');var s=$('#voiceStatus');if(s)s.textContent='Tap the mic and speak';}
-  micBig.onclick=function(){
-    if(listening){stopListen();return}
-    listening=true;stage.classList.add('listening');$('#voiceStatus').textContent='Listening...';
+  /* voice mode */
+  var listening=false, lt, rec=null;
+  var micBig=$('#micBig'), vStatus=$('#voiceStatus'), IDLE='Tap the mic and speak';
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  function voiceSpeak(items){
+    var ok=Speech.speakSeq(items,{
+      start:function(){stage.classList.add('tutor-speaking');vStatus.textContent=L.tutor+' is speaking...'},
+      end:function(){stage.classList.remove('tutor-speaking')},
+      done:function(){vStatus.textContent=IDLE},
+      fail:function(err){ if(err!=='interrupted'&&err!=='canceled'){ fakeSpeak(); flashHint('No voice available for '+L.name+' on this device.'); } },
+      blocked:function(){}
+    });
+    if(!ok) fakeSpeak();
+  }
+  function fakeSpeak(){
+    { // no audio: fake the speaking waveform briefly so it still feels alive
+      stage.classList.add('tutor-speaking'); vStatus.textContent=L.tutor+' replied (sound off)';
+      setTimeout(function(){stage.classList.remove('tutor-speaking');vStatus.textContent=IDLE},2200);
+    }
+  }
+  function stopListen(){listening=false;clearTimeout(lt);stage.classList.remove('listening');if(rec){try{rec.abort()}catch(e){} rec=null;} if(vStatus&&!stage.classList.contains('tutor-speaking')) vStatus.textContent=IDLE;}
+  function fakeListen(){
     lt=setTimeout(function(){
-      var said=L.sugg[0];$('#voiceStatus').textContent='Heard: "'+said+'"';
+      var said=L.sugg[0];vStatus.textContent='Heard: "'+said+'" (demo transcript)';
       listening=false;stage.classList.remove('listening');
-      setTimeout(function(){send(said);$('#voiceStatus').textContent='Tap the mic and speak';},700);
+      setTimeout(function(){send(said)},700);
     },2600);
-  };
-  if(qs.get('listen')==='1'){setTimeout(function(){listening=true;stage.classList.add('listening');$('#voiceStatus').textContent='Listening...';},50)}
+  }
+  function fakeListenNow(){ var said=L.sugg[0]; vStatus.textContent='Heard: "'+said+'" (demo transcript)'; listening=false; stage.classList.remove('listening'); setTimeout(function(){send(said)},700); }
+  function startListen(){
+    stopTutorSpeech(); listening=true; stage.classList.add('listening'); vStatus.textContent='Listening...';
+    var useReal=SR&&qs.get('fakemic')!=='1'&&location.protocol!=='file:';
+    if(!useReal){ fakeListen(); return; }
+    var heard='', gotAny=false;
+    try{
+      rec=new SR(); rec.lang=TL; rec.interimResults=true; rec.maxAlternatives=1; rec.continuous=false;
+      rec.onresult=function(e){ gotAny=true; heard=''; for(var i=0;i<e.results.length;i++) heard+=e.results[i][0].transcript; vStatus.textContent='Listening... "'+heard+'"'; };
+      rec.onerror=function(e){ var r=rec; rec=null; if(!listening) return;
+        if(e.error==='no-speech'){ listening=false; stage.classList.remove('listening'); vStatus.textContent='Did not catch that. Tap the mic and try again.'; return; }
+        fakeListen(); flashHint('Mic unavailable ('+e.error+'). Using a demo transcript.'); };
+      rec.onend=function(){ if(!listening||!rec) return; rec=null; listening=false; stage.classList.remove('listening');
+        if(heard.trim()){ vStatus.textContent='Heard: "'+heard.trim()+'"'; setTimeout(function(){send(heard)},400); }
+        else vStatus.textContent='Did not catch that. Tap the mic and try again.'; };
+      rec.start();
+      // safety net: if the mic never produces anything (no device, blocked silently), fall back to the demo transcript
+      lt=setTimeout(function(){ if(listening&&rec&&!gotAny){ var r=rec; rec=null; try{r.abort()}catch(e){} fakeListenNow(); flashHint('No mic input detected. Using a demo transcript.'); } },7000);
+    }catch(err){ rec=null; fakeListen(); }
+  }
+  micBig.onclick=function(){ Speech.unlock(); if(listening){stopListen();return} startListen(); };
+  if(qs.get('listen')==='1'){setTimeout(function(){listening=true;stage.classList.add('listening');vStatus.textContent='Listening...';},50)}
 
-  // video
-  var vi=0, vt, captionsOn=true, trOn=false;
-  var vid=$('#tutorVideo'), tile=$('#tutorTile');
+  /* video mode: speech-driven subtitles + avatar */
+  var vi=0, vt=null, videoOn=false, trOn=false, warned=false;
+  var vid=$('#tutorVideo'), tile=$('#tutorTile'), subText=$('#subText'), subTr=$('#subTr');
+  var script=L.lines.concat(L.replies);
   if(vid){
     vid.addEventListener('loadeddata',function(){tile.classList.add('has-video')});
-    vid.addEventListener('error',function(){tile.classList.remove('has-video')},true);
     var src=vid.querySelector('source'); if(src) src.addEventListener('error',function(){tile.classList.remove('has-video')});
-    vid.addEventListener('play',function(){tile.classList.add('playing')});
+    vid.addEventListener('play',function(){tile.classList.add('playing');stopTutorSpeech();clearTimeout(vt)});
     vid.addEventListener('pause',function(){tile.classList.remove('playing')});
     vid.addEventListener('ended',function(){tile.classList.remove('playing')});
-    $('#playBtn').onclick=function(){vid.muted=false;vid.play().catch(function(){})};
+    $('#playBtn').onclick=function(){Speech.unlock();vid.muted=Speech.isMuted();vid.play().catch(function(){})};
     vid.onclick=function(){if(!vid.paused) vid.pause()};
   }
-  function showLine(){
-    var line=L.lines[vi%L.lines.length];
-    $('#subText').textContent=line[0];
-    $('#subTr').textContent=line[1]==='(English)'?'':line[1];
-    tile.classList.add('speaking');
-    clearTimeout(tile._t);tile._t=setTimeout(function(){tile.classList.remove('speaking')},3000);
-    vi++;
+  function setSub(line,hl){
+    var t=line[0];
+    if(hl){ subText.innerHTML=esc(t.slice(0,hl[0]))+'<mark>'+esc(t.slice(hl[0],hl[0]+hl[1]))+'</mark>'+esc(t.slice(hl[0]+hl[1])); }
+    else subText.textContent=t;
+    subTr.textContent=line[1]==='(English)'?'':line[1];
   }
-  function startVideo(){if(vt) return;showLine();vt=setInterval(showLine,4200)}
-  function stopVideo(){clearInterval(vt);vt=null;if(vid&&!vid.paused)vid.pause()}
-  function toggle(btn,cls,cb){btn.onclick=function(){var on=btn.classList.toggle('off');if(cb)cb(!on)}}
-  toggle($('#vcMic'),'off',function(on){$('#vcMic').title=on?'Mute':'Unmute'});
-  toggle($('#vcCam'),'off',function(on){$('#selfTile').classList.toggle('cam-off',!on);$('#selfCamToggle').textContent=on?'📷 Turn off':'📷 Turn on'});
+  function playLine(){
+    clearTimeout(vt); if(!videoOn) return;
+    if(tile.classList.contains('playing')) return;
+    if(vi>=script.length){ subText.textContent='Your turn! Answer out loud, then switch to Voice mode to keep talking.'; subTr.textContent=''; tile.classList.remove('speaking'); return; }
+    var line=script[vi++]; setSub(line);
+    var spoke=Speech.speakSeq([[line[0],TL]],{
+      start:function(){tile.classList.add('speaking')},
+      boundary:function(it,ci,cl){ if(cl==null||!cl){ var rest=line[0].slice(ci), m=rest.match(/^\S+/); cl=m?m[0].length:1; } setSub(line,[ci,cl]); },
+      end:function(it,i,err){ tile.classList.remove('speaking'); setSub(line);
+        if(err&&err!=='interrupted'&&err!=='canceled'){ timedLine(line,true); if(!warned){warned=true;flashHint(err==='not-allowed'?'Tap anywhere to enable sound':'No voice available for '+L.name+' on this device. Subtitles only.');} } },
+      done:function(){ vt=setTimeout(playLine,1400); }
+    });
+    if(!spoke) timedLine(line,false);
+  }
+  // silent fallback: fake mouth animation for a duration based on text length
+  function timedLine(line,already){
+    tile.classList.add('speaking');
+    var dur=Math.min(5000,1200+line[0].length*55);
+    vt=setTimeout(function(){tile.classList.remove('speaking');vt=setTimeout(playLine,1200)},dur);
+  }
+  function restartVideoLine(){ if(!videoOn) return; Speech.cancel(); clearTimeout(vt); vi=Math.max(0,vi-1); playLine(); }
+  function startVideo(){ if(videoOn) return; videoOn=true; vi=0; $('#endModal').classList.remove('open'); playLine(); }
+  function stopVideo(){ videoOn=false; clearTimeout(vt); tile.classList.remove('speaking'); if(vid&&!vid.paused) vid.pause(); }
+  function toggle(btn,cb){btn.onclick=function(){var on=btn.classList.toggle('off');if(cb)cb(!on)}}
+  toggle($('#vcMic'),function(on){$('#vcMic').title=on?'Mute your mic':'Unmute your mic';$('#vcMic').firstChild.nodeValue=on?'🎙️':'🚫'});
+  toggle($('#vcCam'),function(on){$('#selfTile').classList.toggle('cam-off',!on);$('#selfCamToggle').textContent=on?'📷 Turn off':'📷 Turn on'});
   $('#selfCamToggle').onclick=function(){$('#vcCam').click()};
-  toggle($('#vcCc'),'off',function(on){$('#subs').classList.toggle('hidden',!on)});
+  toggle($('#vcCc'),function(on){$('#subs').classList.toggle('hidden',!on)});
   $('#trToggle').onclick=function(){trOn=!trOn;$('#subs').classList.toggle('show-tr',trOn);this.classList.toggle('on',trOn);this.textContent=trOn?'Translation on':'Translate'};
-  $('#vcEnd').onclick=function(){stopVideo();$('#endModal').classList.add('open')};
+  $('#vcEnd').onclick=function(){stopVideo();stopTutorSpeech();$('#endModal').classList.add('open')};
   $('#endClose').onclick=function(){$('#endModal').classList.remove('open');setMode('chat')};
 
   setMode(qs.get('mode')||'chat');
+  syncSound();
 }
 document.addEventListener('DOMContentLoaded',function(){initOnboarding();initPractice();
   var mt=document.querySelector('.menu-toggle');if(mt)mt.onclick=function(){document.body.classList.toggle('nav-open')};

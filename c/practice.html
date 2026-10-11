@@ -14,12 +14,14 @@
 <a class="dir-tag" href="../index.html" title="Back to directions">Direction C · Bold & techy · switch</a>
 <main class="practice">
   <div class="p-top">
-    <div class="p-title"><span class="js-flag">🇪🇸</span> <b class="js-lang">Spanish</b> · <span class="js-level">Beginner</span> <span class="muted">· Lesson 3: Talking about your weekend</span></div>
+    <div class="p-left"><div class="p-title"><span class="js-flag">🇪🇸</span> <b class="js-lang">Spanish</b> · <span class="js-level">Beginner</span> <span class="muted">· Lesson 3: Talking about your weekend</span></div></div>
     <div class="mode-switch" role="tablist">
       <button class="mode-btn active" data-mode="chat" role="tab">💬 Chat</button>
       <button class="mode-btn" data-mode="voice" role="tab">🎙️ Voice</button>
       <button class="mode-btn" data-mode="video" role="tab">🎥 Video</button>
     </div>
+    <div class="snd-ctrls"><button class="pill-btn" id="soundToggle" type="button" aria-pressed="true" title="Tutor voice on or off">🔊 Sound</button><button class="pill-btn" id="slowToggle" type="button" aria-pressed="false" title="Slower speech for learners">🐢 Slow</button></div>
+    <button class="sound-hint" id="soundHint" type="button">🔈 Tap to enable sound</button>
   </div>
   <div class="p-grid">
     <section class="stage" id="stage" data-mode="chat">
@@ -69,7 +71,8 @@
             <button class="tr-toggle" id="trToggle" type="button">Translate</button>
           </div>
           <div class="controls">
-            <button class="ctl" id="vcMic" type="button" title="Mute">🎙️<small>Mic</small></button>
+            <button class="ctl" id="vcMic" type="button" title="Mute your mic">🎙️<small>Your mic</small></button>
+            <button class="ctl" id="vcSound" type="button" title="Mute or unmute the tutor voice">🔊<small>Tutor voice</small></button>
             <button class="ctl" id="vcCam" type="button" title="Camera">📷<small>Camera</small></button>
             <button class="ctl" id="vcCc" type="button" title="Captions">CC<small>Captions</small></button>
             <button class="ctl end" id="vcEnd" type="button">✕<small>End lesson</small></button>
