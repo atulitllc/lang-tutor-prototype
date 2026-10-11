@@ -1,0 +1,95 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Practice · [Product name] prototype C</title><link rel="stylesheet" href="style.css"></head><body class="page-practice">
+<header class="nav">
+  <a class="logo" href="index.html"><span class="logo-ic">◆</span><span class="ph">[Product name]</span></a>
+  <button class="menu-toggle" type="button" aria-label="Menu">☰</button>
+  <nav class="nav-links">
+    <a href="index.html#how">How it works</a>
+    <a href="index.html#pricing">Pricing</a>
+    <a href="index.html#faq">FAQ</a>
+    <a href="practice.html">Try a lesson</a>
+    <a class="btn btn-primary btn-sm" href="onboarding.html">Get started</a>
+  </nav>
+</header>
+<a class="dir-tag" href="../index.html" title="Back to directions">Direction C · Bold & techy · switch</a>
+<main class="practice">
+  <div class="p-top">
+    <div class="p-title"><span class="js-flag">🇪🇸</span> <b class="js-lang">Spanish</b> · <span class="js-level">Beginner</span> <span class="muted">· Lesson 3: Talking about your weekend</span></div>
+    <div class="mode-switch" role="tablist">
+      <button class="mode-btn active" data-mode="chat" role="tab">💬 Chat</button>
+      <button class="mode-btn" data-mode="voice" role="tab">🎙️ Voice</button>
+      <button class="mode-btn" data-mode="video" role="tab">🎥 Video</button>
+    </div>
+  </div>
+  <div class="p-grid">
+    <section class="stage" id="stage" data-mode="chat">
+      <!-- CHAT + VOICE share the transcript -->
+      <div class="chat-wrap">
+        <div class="chat-head"><span class="avatar-sm js-tutor-init">AI</span><div><b class="js-tutor">Sofía</b><small>AI tutor · online</small></div></div>
+        <div class="chat" id="chat"></div>
+        <div class="voice-panel">
+          <button class="mic-big" id="micBig" type="button" aria-label="Toggle microphone">🎙️</button>
+          <div class="wave"><span style="animation-delay:0.00s"></span><span style="animation-delay:0.07s"></span><span style="animation-delay:0.14s"></span><span style="animation-delay:0.21s"></span><span style="animation-delay:0.28s"></span><span style="animation-delay:0.35s"></span><span style="animation-delay:0.42s"></span><span style="animation-delay:0.49s"></span><span style="animation-delay:0.56s"></span><span style="animation-delay:0.63s"></span><span style="animation-delay:0.70s"></span><span style="animation-delay:0.77s"></span><span style="animation-delay:0.84s"></span><span style="animation-delay:0.91s"></span><span style="animation-delay:0.98s"></span><span style="animation-delay:1.05s"></span><span style="animation-delay:1.12s"></span><span style="animation-delay:1.19s"></span><span style="animation-delay:1.26s"></span><span style="animation-delay:1.33s"></span><span style="animation-delay:1.40s"></span><span style="animation-delay:1.47s"></span><span style="animation-delay:1.54s"></span><span style="animation-delay:1.61s"></span></div>
+          <div class="voice-status" id="voiceStatus">Tap the mic and speak</div>
+          <small class="muted">Prototype: no real audio is recorded</small>
+        </div>
+        <div class="suggestions" id="suggestions"><span class="sugg-lbl">Try:</span></div>
+        <form class="composer" id="composer"><button type="button" class="icon-btn js-to-voice" title="Voice mode">🎙️</button><input id="msgInput" autocomplete="off" placeholder="Type in your target language..."><button class="btn btn-primary send" type="submit">Send ➤</button></form>
+      </div>
+      <!-- VIDEO -->
+      <div class="video-wrap">
+        <div class="call">
+          <div class="tutor-tile" id="tutorTile">
+            <svg class="avatar-svg big" viewBox="0 0 200 200" aria-hidden="true">
+  <defs><radialGradient id="glow-big" cx="50%" cy="45%" r="55%"><stop offset="0" stop-color="var(--glow1)"/><stop offset="1" stop-color="var(--glow2)" stop-opacity="0"/></radialGradient></defs>
+  <circle class="av-glow" cx="100" cy="95" r="95" fill="url(#glow-big)"/>
+  <path class="av-hair-back" d="M42 110 Q36 40 100 32 Q164 40 158 110 L160 170 Q100 150 40 170 Z" fill="var(--hair)"/>
+  <rect x="86" y="128" width="28" height="30" rx="10" fill="var(--skin2)"/>
+  <path d="M40 200 Q46 150 100 148 Q154 150 160 200 Z" fill="var(--shirt)"/>
+  <ellipse cx="100" cy="98" rx="46" ry="54" fill="var(--skin)"/>
+  <path d="M54 84 Q60 40 100 40 Q146 42 148 88 Q128 62 96 60 Q70 64 54 84 Z" fill="var(--hair)"/>
+  <g class="av-eyes"><ellipse cx="82" cy="98" rx="5" ry="6" fill="#2b2b3a"/><ellipse cx="118" cy="98" rx="5" ry="6" fill="#2b2b3a"/></g>
+  <path d="M73 86 Q82 81 90 85" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/><path d="M110 85 Q118 81 127 86" stroke="#2b2b3a" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <ellipse cx="72" cy="114" rx="7" ry="4" fill="#ff8a8a" opacity=".35"/><ellipse cx="128" cy="114" rx="7" ry="4" fill="#ff8a8a" opacity=".35"/>
+  <ellipse class="av-mouth" cx="100" cy="124" rx="11" ry="4" fill="#a3324a"/>
+</svg>
+            <video id="tutorVideo" playsinline preload="metadata" poster="../assets/tutor-poster.jpg"><source src="../assets/tutor-sample.mp4" type="video/mp4"></video>
+            <button class="play-btn" id="playBtn" type="button" aria-label="Play with sound">▶</button>
+            <span class="tile-label">AI tutor · <b class="js-tutor">Sofía</b></span>
+            <span class="rec">● LIVE</span>
+            <div class="self-tile" id="selfTile">
+              <svg viewBox="0 0 100 100" class="silhouette"><circle cx="50" cy="38" r="18"/><path d="M18 100 Q20 64 50 62 Q80 64 82 100Z"/></svg>
+              <span class="cam-off-lbl">Camera off</span>
+              <button class="self-cam" id="selfCamToggle" type="button">📷 Turn off</button>
+              <span class="self-lbl">You</span>
+            </div>
+          </div>
+          <div class="subs" id="subs">
+            <div class="sub-text" id="subText"></div><div class="sub-tr" id="subTr"></div>
+            <button class="tr-toggle" id="trToggle" type="button">Translate</button>
+          </div>
+          <div class="controls">
+            <button class="ctl" id="vcMic" type="button" title="Mute">🎙️<small>Mic</small></button>
+            <button class="ctl" id="vcCam" type="button" title="Camera">📷<small>Camera</small></button>
+            <button class="ctl" id="vcCc" type="button" title="Captions">CC<small>Captions</small></button>
+            <button class="ctl end" id="vcEnd" type="button">✕<small>End lesson</small></button>
+          </div>
+        </div>
+        <aside class="feedback"><h3>Live feedback</h3><p class="muted small">Corrections from this lesson appear here.</p><div id="feedbackList"></div></aside>
+      </div>
+    </section>
+    <aside class="panel">
+      <h3>Today</h3>
+      <div class="ring-wrap"><svg class="ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" class="ring-bg"/><circle cx="50" cy="50" r="45" class="ring-fg" style="stroke-dasharray:283;stroke-dashoffset:113"/></svg><div class="ring-txt"><b class="js-xp">120</b><small>/ 200 XP</small></div></div>
+      <div class="stats">
+        <div class="stat"><span>🔥</span><b>12</b><small>day streak</small></div>
+        <div class="stat"><span>📚</span><b class="js-words">86</b><small>words learned</small></div>
+        <div class="stat"><span>🎯</span><b class="js-acc">91%</b><small>accuracy</small></div>
+      </div>
+      <div class="lesson-prog"><div class="lp-top"><span>Today's lesson</span><b class="js-lesson">40%</b></div><div class="bar"><div class="bar-fill js-lessonbar" style="width:40%"></div></div><small class="muted">Past tense: weekend plans</small></div>
+      <div class="panel-tip">💡 Tip: tap Translate on any tutor message to see it in English.</div>
+    </aside>
+  </div>
+</main>
+<div class="modal" id="endModal"><div class="modal-card"><div class="big-emoji">🎉</div><h2>Lesson complete!</h2><p>+40 XP · 6 new words · 2 corrections reviewed</p><div class="cta-row"><button class="btn btn-primary" id="endClose" type="button">Back to chat</button><a class="btn btn-ghost" href="index.html">Home</a></div></div></div>
+<script src="app.js"></script></body></html>
